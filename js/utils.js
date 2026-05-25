@@ -28,6 +28,19 @@ const ES_QUALITY_COLOR  = { '自信あり':'#10b981', '普通':'#6b7280', '要�
 const ES_QUALITY_BG     = { '自信あり':'#d1fae5', '普通':'#f3f4f6', '要改善':'#ffedd5', 'AI生成':'#ede9fe' };
 const ES_QUALITY_ICON   = { '自信あり':'✨', '普通':'📝', '要改善':'📌', 'AI生成':'🤖' };
 
+const COMPANY_TYPE_COLOR = { '本選考':'#6366f1', 'インターン':'#f59e0b' };
+const COMPANY_TYPE_BG    = { '本選考':'#e0e7ff', 'インターン':'#fef3c7' };
+
+const STEP_RESULT_COLOR = {
+  '未定':'#94a3b8', '進行中':'#3b82f6', '通過':'#10b981', 'お祈り':'#6b7280', '辞退':'#9ca3af'
+};
+const STEP_RESULT_BG = {
+  '未定':'#f1f5f9', '進行中':'#dbeafe', '通過':'#d1fae5', 'お祈り':'#f3f4f6', '辞退':'#f9fafb'
+};
+
+const TODO_PRIORITY_COLOR = { '高':'#ef4444', '中':'#f59e0b', '低':'#10b981' };
+const TODO_PRIORITY_BG    = { '高':'#fee2e2', '中':'#fef3c7', '低':'#d1fae5' };
+
 // ── バッジ生成 ──────────────────────────────────────────────────────────
 function renderTierBadge(tier) {
   if (!tier) return '<span class="badge badge-empty">-</span>';
@@ -63,6 +76,62 @@ function renderResultBadge(result) {
   const c = RESULT_COLOR[result] || '#6b7280';
   const bg = RESULT_BG[result] || '#f3f4f6';
   return `<span class="badge" style="color:${c};background:${bg};font-weight:600">${result}</span>`;
+}
+
+function renderCompanyTypeBadge(type) {
+  if (!type) return '';
+  const c  = COMPANY_TYPE_COLOR[type] || '#6b7280';
+  const bg = COMPANY_TYPE_BG[type]    || '#f3f4f6';
+  return `<span class="badge" style="color:${c};background:${bg};font-weight:600">${type}</span>`;
+}
+
+function renderStepResultBadge(result) {
+  if (!result) return '';
+  const c  = STEP_RESULT_COLOR[result] || '#94a3b8';
+  const bg = STEP_RESULT_BG[result]    || '#f1f5f9';
+  return `<span class="badge" style="color:${c};background:${bg}">${result}</span>`;
+}
+
+function renderTodoPriorityBadge(priority) {
+  if (!priority) return '';
+  const c  = TODO_PRIORITY_COLOR[priority] || '#6b7280';
+  const bg = TODO_PRIORITY_BG[priority]    || '#f3f4f6';
+  return `<span class="badge" style="color:${c};background:${bg};font-weight:700">${priority}</span>`;
+}
+
+// ── 選考状況の自動判定 ──────────────────────────────────────────────────
+// 選考フローがある場合はそちらから状態を導出し、なければ手動フィールドを使う
+function getComputedStatus(company) {
+  // 手動で最終結果が設定されていれば優先
+  if (company.finalResult) {
+    return { currentStage: company.currentStage || '', finalResult: company.finalResult, nextDate: null };
+  }
+
+  const steps = DB.getSteps(company.id).sort((a,b) =>
+    (a.order||0) - (b.order||0) || (a.createdAt||'') < (b.createdAt||'') ? -1 : 1
+  );
+
+  if (steps.length === 0) {
+    return { currentStage: company.currentStage || '', finalResult: null, nextDate: company.scheduleDate || null };
+  }
+
+  // ステップを順番に確認して現在地を判定
+  for (const s of steps) {
+    if (s.result === 'お祈り') return { currentStage: s.name, finalResult: 'お祈り', nextDate: null };
+    if (s.result === '辞退')   return { currentStage: s.name, finalResult: '辞退',   nextDate: null };
+    if (s.result === '進行中' || s.result === '未定') {
+      return { currentStage: s.name, finalResult: null, nextDate: s.date || null };
+    }
+  }
+
+  // 全ステップ通過（手動のfinalResultなし）
+  return { currentStage: steps[steps.length-1].name + '（通過）', finalResult: null, nextDate: null };
+}
+
+function renderCurrentStageBadge(stage) {
+  if (!stage) return '';
+  if (STAGE_COLOR[stage]) return renderStageBadge(stage);
+  return `<span class="badge" style="color:#6366f1;background:#e0e7ff">${esc(stage)}</span>`;
 }
 
 // ── 日付ユーティリティ ──────────────────────────────────────────────────

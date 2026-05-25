@@ -1,5 +1,7 @@
 const ESPage = {
   _filterCompany: '',
+  _filterCategory: '',
+  _sort: 'company',
 
   render() {
     const companies = DB.getCompanies();
@@ -7,32 +9,48 @@ const ESPage = {
     const compMap = {};
     companies.forEach(c => compMap[c.id] = c);
 
-    const filtered = this._filterCompany
-      ? allES.filter(e => e.companyId === this._filterCompany)
-      : allES;
+    let filtered = allES;
+    if (this._filterCompany)  filtered = filtered.filter(e => e.companyId === this._filterCompany);
+    if (this._filterCategory) filtered = filtered.filter(e => e.category === this._filterCategory);
 
-    // 企業ごとにグループ化
     const grouped = {};
     filtered.forEach(e => {
       if (!grouped[e.companyId]) grouped[e.companyId] = [];
       grouped[e.companyId].push(e);
     });
-    const sortedGroupKeys = Object.keys(grouped).sort((a,b) => {
-      const ca = compMap[a], cb = compMap[b];
-      if (!ca || !cb) return 0;
-      return (ca.name||'').localeCompare(cb.name||'', 'ja');
-    });
+
+    let sortedGroupKeys = Object.keys(grouped);
+    if (this._sort === 'company') {
+      sortedGroupKeys.sort((a,b) => {
+        const ca = compMap[a], cb = compMap[b];
+        if (!ca || !cb) return 0;
+        return (ca.name||'').localeCompare(cb.name||'', 'ja');
+      });
+    } else if (this._sort === 'date') {
+      sortedGroupKeys.sort((a,b) => {
+        const ca = compMap[a], cb = compMap[b];
+        return (cb?.updatedAt||'') < (ca?.updatedAt||'') ? -1 : 1;
+      });
+    }
 
     return `
 <div class="page-content">
-  <!-- フィルターバー -->
+  <!-- フィルター・ソートバー -->
   <div class="filter-bar card">
     <select class="filter-select" style="min-width:200px" onchange="ESPage.onFilterCompany(this.value)">
       <option value="">全企業 (${allES.length}件)</option>
       ${companies.sort((a,b)=>(a.name||'').localeCompare(b.name||'','ja')).map(c => {
         const cnt = allES.filter(e=>e.companyId===c.id).length;
-        return `<option value="${c.id}" ${this._filterCompany===c.id?'selected':''}>${esc(c.name)} (${cnt}設問)</option>`;
+        return `<option value="${c.id}" ${this._filterCompany===c.id?'selected':''}>${esc(c.name)} (${cnt})</option>`;
       }).join('')}
+    </select>
+    <select class="filter-select" onchange="ESPage.onFilterCategory(this.value)">
+      <option value="">全カテゴリ</option>
+      ${PR_TYPES.map(t => `<option value="${t}" ${this._filterCategory===t?'selected':''}>${t}</option>`).join('')}
+    </select>
+    <select class="filter-select" onchange="ESPage.onSort(this.value)">
+      <option value="company" ${this._sort==='company'?'selected':''}>企業名順</option>
+      <option value="date"    ${this._sort==='date'?'selected':''}>更新日順</option>
     </select>
     <span class="filter-count">${filtered.length}設問</span>
   </div>
@@ -40,19 +58,16 @@ const ESPage = {
   ${companies.length === 0
     ? '<div class="card mt-3"><p class="empty-msg m-4">先に企業を追加してください。</p></div>'
     : sortedGroupKeys.length === 0
-      ? `<div class="card mt-3 es-empty-hint">
-          <p class="empty-msg m-4">ESがありません。</p>
-          <p class="text-muted m-4" style="margin-top:0">右上の「＋ES追加」から追加するか、企業ごとの「＋設問を追加」ボタンを使ってください。</p>
-        </div>`
+      ? `<div class="card mt-3"><p class="empty-msg m-4">ESがありません。右上の「＋ES追加」から追加するか、企業詳細から追加してください。</p></div>`
       : sortedGroupKeys.map(cid => {
           const co = compMap[cid];
           const entries = grouped[cid].sort((a,b) => (a.createdAt||'') < (b.createdAt||'') ? -1 : 1);
           return `
             <div class="card mt-3">
-              <!-- 企業ヘッダー -->
               <div class="card-header es-company-header">
                 <div class="flex-row gap-2">
                   <h3 class="card-title">${esc(co ? co.name : '不明な企業')}</h3>
+                  ${co ? renderCompanyTypeBadge(co.type) : ''}
                   ${co ? renderIndustryBadge(co.industry) : ''}
                   ${co ? renderTierBadge(co.tier) : ''}
                   <span class="es-count-badge">${entries.length}設問</span>
@@ -61,10 +76,8 @@ const ESPage = {
                   + 設問を追加
                 </button>
               </div>
-
-              <!-- 設問リスト -->
               <div class="es-questions-list">
-                ${entries.map((e, idx) => this._entryHTML(e, idx + 1, entries.length)).join('')}
+                ${entries.map((e, idx) => this._entryHTML(e, idx + 1, entries.length, entries)).join('')}
               </div>
             </div>`;
         }).join('')
@@ -72,29 +85,29 @@ const ESPage = {
 </div>`;
   },
 
-  _entryHTML(e, num, total) {
+  _entryHTML(e, num, total, allEntries) {
     return `
       <div class="es-entry" id="es-${e.id}">
-        <!-- 設問ヘッダー行 -->
         <div class="es-entry-header">
           <div class="flex-row gap-2">
             <span class="es-num">設問 ${num} / ${total}</span>
             ${renderQualityBadge(e.quality)}
+            ${e.category ? `<span class="badge" style="background:#f3f4f6;color:#6b7280">${esc(e.category)}</span>` : ''}
             ${e.submittedDate ? `<span class="text-sm text-muted">提出日: ${formatDate(e.submittedDate)}</span>` : ''}
           </div>
           <div class="action-btns">
+            ${num > 1 ? `<button class="btn-icon" title="前の設問" onclick="document.getElementById('es-${allEntries[num-2].id}').scrollIntoView({behavior:'smooth',block:'center'})">↑</button>` : ''}
+            ${num < total ? `<button class="btn-icon" title="次の設問" onclick="document.getElementById('es-${allEntries[num].id}').scrollIntoView({behavior:'smooth',block:'center'})">↓</button>` : ''}
             <button class="btn-icon" title="編集" onclick="ESPage.openEdit('${e.id}')">✏️</button>
             <button class="btn-icon btn-icon-danger" title="削除" onclick="ESPage.confirmDelete('${e.id}')">🗑️</button>
           </div>
         </div>
 
-        <!-- 設問文 -->
         <div class="es-question-block">
           <span class="es-q-label">設問</span>
           <p class="es-q">${esc(e.question)}</p>
         </div>
 
-        <!-- 回答 -->
         <div class="es-answer-block">
           <div class="es-answer-header">
             <span class="es-q-label">回答</span>
@@ -107,13 +120,14 @@ const ESPage = {
   },
 
   onFilterCompany(val) { this._filterCompany = val; App.rerender(); },
+  onFilterCategory(val) { this._filterCategory = val; App.rerender(); },
+  onSort(val) { this._sort = val; App.rerender(); },
 
   mount() {},
 
   // ── 追加フォーム ──────────────────────────────────────────────
   openAdd(presetCompanyId = '', presetCompanyName = '') {
     const companies = DB.getCompanies();
-    // 企業フィルター中なら自動的にその会社をプリセット
     const preset = presetCompanyId || this._filterCompany || '';
     Modal.show({
       title: presetCompanyName ? `ESを追加 — ${presetCompanyName}` : 'ESを追加',
@@ -135,9 +149,21 @@ const ESPage = {
     if (!e) return;
     const companies = DB.getCompanies();
     const co = companies.find(c => c.id === e.companyId);
+
+    const sameCompany = DB.getES()
+      .filter(x => x.companyId === e.companyId)
+      .sort((a,b) => (a.createdAt||'') < (b.createdAt||'') ? -1 : 1);
+    const idx = sameCompany.findIndex(x => x.id === id);
+    const navInfo = sameCompany.length > 1 ? {
+      prevId: idx > 0 ? sameCompany[idx-1].id : null,
+      nextId: idx < sameCompany.length-1 ? sameCompany[idx+1].id : null,
+      current: idx + 1,
+      total: sameCompany.length
+    } : null;
+
     Modal.show({
       title: co ? `ESを編集 — ${co.name}` : 'ESを編集',
-      body: this._form(e, companies, e.companyId),
+      body: this._form(e, companies, e.companyId, navInfo),
       onSubmit: () => {
         const d = getFormData('es-form');
         if (!d.question) { Toast.error('設問内容を入力してください'); return; }
@@ -158,9 +184,16 @@ const ESPage = {
     });
   },
 
-  _form(e = {}, companies = [], presetId = '') {
+  _form(e = {}, companies = [], presetId = '', navInfo = null) {
     const isEdit = !!e.companyId;
-    return `<form id="es-form" class="form-grid">
+    const navHTML = navInfo ? `
+      <div class="es-nav-bar">
+        ${navInfo.prevId ? `<button type="button" class="btn btn-ghost btn-sm" onclick="ESPage.openEdit('${navInfo.prevId}')">← 前の設問</button>` : '<span></span>'}
+        <span class="text-muted text-sm">設問 ${navInfo.current} / ${navInfo.total}</span>
+        ${navInfo.nextId ? `<button type="button" class="btn btn-ghost btn-sm" onclick="ESPage.openEdit('${navInfo.nextId}')">次の設問 →</button>` : '<span></span>'}
+      </div>` : '';
+
+    return `${navHTML}<form id="es-form" class="form-grid">
       <div class="form-group span-2">
         <label class="form-label">企業 <span class="req">*</span></label>
         <select class="form-select" name="companyId" ${isEdit ? 'disabled' : ''}>
@@ -183,6 +216,14 @@ const ESPage = {
           <span class="char-counter" id="char-count">0字</span>
         </label>
         <textarea class="form-textarea" name="answer" id="es-answer" rows="7" placeholder="回答を入力...">${esc(e.answer||'')}</textarea>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">カテゴリ</label>
+        <select class="form-select" name="category">
+          <option value="">未分類</option>
+          ${PR_TYPES.map(t => `<option value="${t}" ${e.category===t?'selected':''}>${t}</option>`).join('')}
+        </select>
       </div>
 
       <div class="form-group">

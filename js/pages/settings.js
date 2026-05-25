@@ -6,7 +6,8 @@ const SettingsPage = {
       es:         exported.es.length,
       interviews: exported.interviews.length,
       obog:       exported.obog.length,
-      prBank:     exported.prBank.length
+      steps:      (exported.steps||[]).length,
+      todos:      (exported.todos||[]).length
     };
     return `
 <div class="page-content">
@@ -20,7 +21,8 @@ const SettingsPage = {
           <span>ES: <b>${counts.es}</b>件</span>
           <span>面接メモ: <b>${counts.interviews}</b>件</span>
           <span>OB/OG: <b>${counts.obog}</b>件</span>
-          <span>PRバンク: <b>${counts.prBank}</b>件</span>
+          <span>選考ステップ: <b>${counts.steps}</b>件</span>
+          <span>TODO: <b>${counts.todos}</b>件</span>
         </div>
         <button class="btn btn-primary" onclick="SettingsPage.exportData()">JSONをダウンロード</button>
       </div>

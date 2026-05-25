@@ -414,6 +414,127 @@ input, select, textarea { font-family: inherit; font-size: 14px; }
   border-radius: 8px; padding: 12px 16px; margin-bottom: 16px;
 }
 
+/* ── 選考フロー（タイムライン） ──────────────────────────────────────── */
+.steps-header { display: flex; align-items: center; gap: 10px; }
+.steps-timeline { display: flex; flex-direction: column; }
+.step-row { display: flex; gap: 0; }
+.step-connector { display: flex; flex-direction: column; align-items: center; width: 28px; flex-shrink: 0; }
+.step-dot {
+  width: 14px; height: 14px; border-radius: 50%;
+  border: 2px solid #e5e7eb; flex-shrink: 0; margin-top: 3px;
+}
+.step-line { flex: 1; width: 2px; background: #e5e7eb; min-height: 20px; margin: 4px 0; }
+.step-content { flex: 1; padding: 4px 0 16px 10px; }
+.step-header { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 6px; margin-bottom: 4px; }
+.step-num { font-size: 11px; color: var(--text-3); background: #f3f4f6; padding: 1px 6px; border-radius: 4px; font-weight: 700; }
+.step-name { font-size: 14px; }
+.step-date { font-size: 13px; color: var(--text-2); margin-bottom: 2px; }
+.step-notes { font-size: 12.5px; color: var(--text-3); margin-top: 2px; }
+
+/* ── カレンダー ──────────────────────────────────────────────────────── */
+.cal-controls {
+  display: flex; align-items: center; gap: 10px;
+  padding: 12px 16px; flex-wrap: wrap;
+}
+.cal-title { font-size: 16px; font-weight: 700; flex: 1; text-align: center; }
+.cal-grid-header {
+  display: grid; grid-template-columns: repeat(7, 1fr);
+  border-bottom: 1px solid var(--border);
+}
+.cal-dow {
+  text-align: center; padding: 10px 4px;
+  font-size: 12px; font-weight: 700; color: var(--text-2);
+}
+.cal-sun { color: #ef4444; }
+.cal-sat { color: #3b82f6; }
+.cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); }
+.cal-cell {
+  min-height: 90px; padding: 6px; border-right: 1px solid #f3f4f6;
+  border-bottom: 1px solid #f3f4f6; cursor: pointer; transition: background 0.1s;
+  overflow: hidden;
+}
+.cal-cell:hover { background: #f9fafb; }
+.cal-cell-empty { background: #fafafa; cursor: default; }
+.cal-cell-empty:hover { background: #fafafa; }
+.cal-today { background: #eff6ff; }
+.cal-today .cal-date {
+  background: var(--accent); color: #fff; border-radius: 50%;
+  width: 22px; height: 22px; display: flex; align-items: center; justify-content: center; font-weight: 700;
+}
+.cal-sun-cell .cal-date { color: #ef4444; }
+.cal-sat-cell .cal-date { color: #3b82f6; }
+.cal-date {
+  font-size: 12px; font-weight: 600; margin-bottom: 4px;
+  width: 22px; height: 22px; display: flex; align-items: center; justify-content: center;
+}
+.cal-events { display: flex; flex-direction: column; gap: 2px; }
+.cal-event-chip {
+  font-size: 10px; padding: 2px 4px; border-radius: 3px;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  line-height: 1.4;
+}
+.cal-event-more { font-size: 10px; color: var(--text-3); padding-left: 4px; }
+
+/* ── アジェンダ ──────────────────────────────────────────────────────── */
+.agenda-date-header {
+  font-size: 12.5px; font-weight: 700; color: var(--text-2);
+  padding: 10px 0 6px; border-bottom: 1px solid #f3f4f6; margin-bottom: 6px;
+}
+.agenda-item {
+  display: flex; align-items: flex-start; gap: 10px;
+  padding: 8px 6px; border-radius: 6px; cursor: pointer; transition: background 0.1s;
+}
+.agenda-item:hover { background: #f9fafb; }
+.agenda-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; margin-top: 4px; }
+.agenda-body { flex: 1; }
+.agenda-label { font-size: 13.5px; font-weight: 600; margin-bottom: 4px; }
+
+/* ── TODOリスト ──────────────────────────────────────────────────────── */
+.todo-filter-bar { display: flex; gap: 6px; flex-wrap: wrap; }
+.todo-filter-btn {
+  padding: 5px 14px; border-radius: 50px; font-size: 12.5px; font-weight: 600;
+  background: #f3f4f6; color: var(--text-2); border: 1.5px solid transparent; cursor: pointer;
+  transition: all 0.15s;
+}
+.todo-filter-btn:hover { background: #e5e7eb; }
+.todo-filter-btn.active { background: #e0e7ff; color: var(--accent); border-color: var(--accent); }
+.todo-list { display: flex; flex-direction: column; gap: 6px; }
+.todo-item {
+  display: flex; align-items: center; gap: 12px;
+  padding: 12px 14px; border-radius: 8px; border: 1px solid var(--border);
+  background: var(--surface); transition: background 0.1s;
+}
+.todo-item:hover { background: #fafafa; }
+.todo-done { opacity: 0.55; }
+.todo-done .todo-text { text-decoration: line-through; color: var(--text-3); }
+.todo-overdue { border-color: #fca5a5; background: #fff5f5; }
+.todo-check { width: 17px; height: 17px; flex-shrink: 0; cursor: pointer; accent-color: var(--accent); }
+.todo-body { flex: 1; min-width: 0; }
+.todo-text { font-size: 13.5px; font-weight: 500; margin-bottom: 4px; }
+.todo-meta { flex-wrap: wrap; }
+
+/* ── ESナビゲーションバー ────────────────────────────────────────────── */
+.es-nav-bar {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 8px 0 14px; margin-bottom: 4px;
+  border-bottom: 1px solid var(--border);
+}
+
+/* ── 選考分析 KPI ────────────────────────────────────────────── */
+.kpi-row { display: flex; flex-wrap: wrap; gap: 12px; margin-bottom: 4px; }
+.kpi-card {
+  flex: 1; min-width: 130px; background: var(--surface);
+  border-radius: var(--radius); box-shadow: var(--shadow);
+  border: 1px solid var(--border); padding: 16px 18px;
+}
+.kpi-value { font-size: 22px; font-weight: 800; margin-bottom: 4px; }
+.kpi-label { font-size: 12px; color: var(--text-2); }
+.rate-bar-wrap { display: flex; align-items: center; gap: 8px; }
+.rate-track { flex: 1; height: 8px; background: #f3f4f6; border-radius: 4px; overflow: hidden; }
+.rate-fill { height: 100%; border-radius: 4px; transition: width 0.4s ease; }
+.text-success { color: #10b981; }
+.text-danger { color: #ef4444; }
+
 /* ── レスポンシブ ────────────────────────────────────────────── */
 @media (max-width: 900px) {
   :root { --sidebar-w: 60px; }

@@ -1,11 +1,12 @@
 const MemoPage = {
-  _tab: 'pr',
+  _tab: 'todo',
+  _todoFilter: 'all',
 
   render() {
     return `
 <div class="page-content">
   <div class="tab-bar">
-    <button class="tab ${this._tab==='pr'?'active':''}" onclick="MemoPage.switchTab('pr')">自己PR / ガクチカ</button>
+    <button class="tab ${this._tab==='todo'?'active':''}" onclick="MemoPage.switchTab('todo')">TODOリスト</button>
     <button class="tab ${this._tab==='iv'?'active':''}" onclick="MemoPage.switchTab('iv')">面接メモ</button>
     <button class="tab ${this._tab==='ob'?'active':''}" onclick="MemoPage.switchTab('ob')">OB / OG 訪問</button>
   </div>
@@ -22,110 +23,160 @@ const MemoPage = {
   },
 
   getAddBtn() {
-    if (this._tab === 'pr') return `<button class="btn btn-primary" onclick="MemoPage.openAddPR()">+ 追加</button>`;
-    if (this._tab === 'iv') return `<button class="btn btn-primary" onclick="MemoPage.openAddInterview()">+ 追加</button>`;
-    if (this._tab === 'ob') return `<button class="btn btn-primary" onclick="MemoPage.openAddOBOG()">+ 追加</button>`;
+    if (this._tab === 'todo') return `<button class="btn btn-primary" onclick="MemoPage.openAddTodo()">+ TODO追加</button>`;
+    if (this._tab === 'iv')   return `<button class="btn btn-primary" onclick="MemoPage.openAddInterview()">+ 追加</button>`;
+    if (this._tab === 'ob')   return `<button class="btn btn-primary" onclick="MemoPage.openAddOBOG()">+ 追加</button>`;
     return '';
   },
 
   _renderTab() {
-    if (this._tab === 'pr') return this._renderPR();
-    if (this._tab === 'iv') return this._renderInterviews();
-    if (this._tab === 'ob') return this._renderOBOG();
+    if (this._tab === 'todo') return this._renderTodo();
+    if (this._tab === 'iv')   return this._renderInterviews();
+    if (this._tab === 'ob')   return this._renderOBOG();
     return '';
   },
 
-  // ── 自己PRバンク ──────────────────────────────────────────────
-  _renderPR() {
-    const list = DB.getPRBank().sort((a,b) => new Date(b.updatedAt) - new Date(a.updatedAt));
-    if (list.length === 0) return '<p class="empty-msg">自己PR・ガクチカがありません。追加してください。</p>';
-    return list.map(p => `
-      <div class="pr-card card">
-        <div class="pr-card-header">
-          <div class="flex-row gap-2">
-            <b>${esc(p.title)}</b>
-            <span class="badge" style="background:#e0e7ff;color:#6366f1">${esc(p.type||'')}</span>
-          </div>
-          <div class="action-btns">
-            <button class="btn-icon" onclick="MemoPage.openEditPR('${p.id}')">✏️</button>
-            <button class="btn-icon btn-icon-danger" onclick="MemoPage.confirmDeletePR('${p.id}')">🗑️</button>
-          </div>
-        </div>
-        <p class="pr-content">${esc(p.content).replace(/\n/g,'<br>')}</p>
-        <div class="pr-footer">
-          <span class="char-badge">${p.charCount}字</span>
-          <span class="text-muted text-sm">更新: ${formatDate(p.updatedAt)}</span>
-        </div>
-      </div>`).join('');
+  // ── TODOリスト ────────────────────────────────────────────────
+  _renderTodo() {
+    const all    = DB.getTodos();
+    const active = all.filter(t => !t.done).length;
+    const done   = all.filter(t => t.done).length;
+    const todos  = this._filteredTodos();
+
+    return `
+      <div class="todo-filter-bar mb-3">
+        <button class="todo-filter-btn ${this._todoFilter==='all'?'active':''}" onclick="MemoPage.setTodoFilter('all')">全て (${all.length})</button>
+        <button class="todo-filter-btn ${this._todoFilter==='active'?'active':''}" onclick="MemoPage.setTodoFilter('active')">未完了 (${active})</button>
+        <button class="todo-filter-btn ${this._todoFilter==='done'?'active':''}" onclick="MemoPage.setTodoFilter('done')">完了 (${done})</button>
+      </div>
+      ${todos.length === 0
+        ? '<p class="empty-msg">TODOがありません。右上の「＋TODO追加」から追加してください。</p>'
+        : `<div class="todo-list">${todos.map(t => this._todoItem(t)).join('')}</div>`
+      }`;
   },
 
-  openAddPR() {
+  _filteredTodos() {
+    let todos = DB.getTodos();
+    if (this._todoFilter === 'active') todos = todos.filter(t => !t.done);
+    if (this._todoFilter === 'done')   todos = todos.filter(t => t.done);
+    const pOrd = { '高':0, '中':1, '低':2, '':3 };
+    return todos.sort((a,b) => {
+      if (a.done !== b.done) return a.done ? 1 : -1;
+      const pa = pOrd[a.priority||''] ?? 3, pb = pOrd[b.priority||''] ?? 3;
+      if (pa !== pb) return pa - pb;
+      if (a.dueDate && b.dueDate) return a.dueDate < b.dueDate ? -1 : 1;
+      if (a.dueDate) return -1; if (b.dueDate) return 1;
+      return (a.createdAt||'') < (b.createdAt||'') ? -1 : 1;
+    });
+  },
+
+  _todoItem(t) {
+    const compMap = {};
+    DB.getCompanies().forEach(c => compMap[c.id] = c);
+    const co = t.companyId ? compMap[t.companyId] : null;
+    const d = t.dueDate ? daysUntil(t.dueDate) : null;
+    const overdue = d !== null && d < 0 && !t.done;
+
+    return `<div class="todo-item ${t.done ? 'todo-done' : ''} ${overdue ? 'todo-overdue' : ''}">
+      <input type="checkbox" class="todo-check" ${t.done ? 'checked' : ''} onchange="MemoPage.toggleTodo('${t.id}')">
+      <div class="todo-body">
+        <div class="todo-text">${esc(t.text)}</div>
+        <div class="todo-meta flex-row gap-2">
+          ${t.priority ? renderTodoPriorityBadge(t.priority) : ''}
+          ${t.dueDate ? `<span class="text-sm ${overdue ? 'text-danger fw-bold' : d !== null && d <= 3 ? 'text-warning fw-bold' : 'text-muted'}">${overdue ? '期限切れ ' : ''}${formatDate(t.dueDate)}</span>` : ''}
+          ${co ? `<span class="text-sm text-muted">@ ${esc(co.name)}</span>` : ''}
+        </div>
+      </div>
+      <div class="action-btns">
+        <button class="btn-icon" onclick="MemoPage.openEditTodo('${t.id}')">✏️</button>
+        <button class="btn-icon btn-icon-danger" onclick="MemoPage.confirmDeleteTodo('${t.id}')">🗑️</button>
+      </div>
+    </div>`;
+  },
+
+  setTodoFilter(f) {
+    this._todoFilter = f;
+    const el = document.getElementById('tab-content');
+    if (el) el.innerHTML = this._renderTab();
+  },
+
+  toggleTodo(id) {
+    const t = DB.getTodos().find(x => x.id === id);
+    if (!t) return;
+    DB.updateTodo(id, { done: !t.done });
+    const el = document.getElementById('tab-content');
+    if (el) el.innerHTML = this._renderTab();
+  },
+
+  openAddTodo() {
     Modal.show({
-      title: '自己PR / ガクチカを追加',
-      body: this._prForm({}),
+      title: 'TODOを追加',
+      body: this._todoForm({}),
       onSubmit: () => {
-        const d = getFormData('pr-form');
-        if (!d.title)   { Toast.error('タイトルを入力してください'); return; }
-        if (!d.content) { Toast.error('内容を入力してください'); return; }
-        DB.addPR(d); Modal.close(); Toast.success('追加しました');
-        document.getElementById('tab-content').innerHTML = this._renderTab();
+        const d = getFormData('todo-form');
+        if (!d.text) { Toast.error('タスク内容を入力してください'); return; }
+        DB.addTodo(d); Modal.close(); Toast.success('追加しました');
+        const el = document.getElementById('tab-content');
+        if (el) el.innerHTML = this._renderTab();
       }
     });
-    setTimeout(() => this._bindPRCharCount(), 100);
   },
 
-  openEditPR(id) {
-    const p = DB.getPRBank().find(x => x.id === id);
-    if (!p) return;
+  openEditTodo(id) {
+    const t = DB.getTodos().find(x => x.id === id);
+    if (!t) return;
     Modal.show({
-      title: '自己PR / ガクチカを編集',
-      body: this._prForm(p),
+      title: 'TODOを編集',
+      body: this._todoForm(t),
       onSubmit: () => {
-        const d = getFormData('pr-form');
-        if (!d.title)   { Toast.error('タイトルを入力してください'); return; }
-        if (!d.content) { Toast.error('内容を入力してください'); return; }
-        DB.updatePR(id, d); Modal.close(); Toast.success('更新しました');
-        document.getElementById('tab-content').innerHTML = this._renderTab();
+        const d = getFormData('todo-form');
+        if (!d.text) { Toast.error('タスク内容を入力してください'); return; }
+        DB.updateTodo(id, d); Modal.close(); Toast.success('更新しました');
+        const el = document.getElementById('tab-content');
+        if (el) el.innerHTML = this._renderTab();
       }
     });
-    setTimeout(() => this._bindPRCharCount(), 100);
   },
 
-  confirmDeletePR(id) {
+  confirmDeleteTodo(id) {
     Modal.confirm({
-      title: '削除確認',
-      message: 'このエントリーを削除しますか？',
-      danger: true,
-      onConfirm: () => { DB.deletePR(id); Toast.success('削除しました'); document.getElementById('tab-content').innerHTML = this._renderTab(); }
+      title: '削除確認', message: 'このTODOを削除しますか？', danger: true,
+      onConfirm: () => {
+        DB.deleteTodo(id); Toast.success('削除しました');
+        const el = document.getElementById('tab-content');
+        if (el) el.innerHTML = this._renderTab();
+      }
     });
   },
 
-  _prForm(p = {}) {
-    return `<form id="pr-form" class="form-grid">
-      <div class="form-group">
-        <label class="form-label">タイトル <span class="req">*</span></label>
-        <input class="form-input" name="title" value="${esc(p.title||'')}" placeholder="例）リーダーシップ系ガクチカ">
+  _todoForm(t = {}) {
+    const companies = DB.getCompanies();
+    return `<form id="todo-form" class="form-grid">
+      <div class="form-group span-2">
+        <label class="form-label">タスク内容 <span class="req">*</span></label>
+        <input class="form-input" name="text" value="${esc(t.text||'')}" placeholder="例）〇〇社のESを書く">
       </div>
       <div class="form-group">
-        <label class="form-label">種類</label>
-        <select class="form-select" name="type">${selectOptions(PR_TYPES, p.type)}</select>
+        <label class="form-label">優先度</label>
+        <select class="form-select" name="priority">
+          <option value="">なし</option>
+          ${TODO_PRIORITIES.map(p => `<option value="${p}" ${t.priority===p?'selected':''}>${p}</option>`).join('')}
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">期限日</label>
+        <input class="form-input" name="dueDate" type="date" value="${esc(t.dueDate||'')}">
       </div>
       <div class="form-group span-2">
-        <label class="form-label">
-          内容 <span class="req">*</span>
-          <span class="char-counter" id="pr-char-count">0字</span>
-        </label>
-        <textarea class="form-textarea" name="content" id="pr-content" rows="8" placeholder="内容を入力...">${esc(p.content||'')}</textarea>
+        <label class="form-label">関連企業（任意）</label>
+        <select class="form-select" name="companyId">
+          <option value="">選択しない</option>
+          ${companies.sort((a,b)=>(a.name||'').localeCompare(b.name||'','ja')).map(c =>
+            `<option value="${c.id}" ${t.companyId===c.id?'selected':''}>${esc(c.name)}</option>`
+          ).join('')}
+        </select>
       </div>
     </form>`;
-  },
-
-  _bindPRCharCount() {
-    const ta = document.getElementById('pr-content');
-    const c  = document.getElementById('pr-char-count');
-    if (!ta || !c) return;
-    const upd = () => { c.textContent = `${ta.value.length}字`; };
-    upd(); ta.addEventListener('input', upd);
   },
 
   // ── 面接メモ ──────────────────────────────────────────────────

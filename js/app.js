@@ -1,11 +1,12 @@
 // ── ページ定義 ──────────────────────────────────────────────────────────
 const PAGES = {
-  dashboard: { page: () => DashboardPage, title: 'ダッシュボード',  icon: '🏠' },
-  companies: { page: () => CompaniesPage, title: '企業管理',        icon: '🏢' },
-  es:        { page: () => ESPage,        title: 'ES管理',          icon: '📄' },
-  analysis:  { page: () => AnalysisPage,  title: '選考分析',        icon: '📊' },
-  memo:      { page: () => MemoPage,      title: 'メモバンク',      icon: '📝' },
-  settings:  { page: () => SettingsPage,  title: '設定',            icon: '⚙️'  }
+  dashboard: { page: () => DashboardPage,  title: 'ダッシュボード', icon: '🏠' },
+  companies: { page: () => CompaniesPage,  title: '企業管理',       icon: '🏢' },
+  es:        { page: () => ESPage,         title: 'ES管理',         icon: '📄' },
+  calendar:  { page: () => CalendarPage,   title: 'カレンダー',     icon: '📅' },
+  memo:      { page: () => MemoPage,       title: 'メモ',           icon: '📝' },
+  analysis:  { page: () => AnalysisPage,   title: '選考分析',       icon: '📊' },
+  settings:  { page: () => SettingsPage,   title: '設定',           icon: '⚙️'  }
 };
 
 const App = {
@@ -65,7 +66,8 @@ const App = {
     if (!el) return;
     const companies = DB.getCompanies();
     const ongoing = companies.filter(c => !c.finalResult).length;
-    el.innerHTML = `<span>${companies.length}社 / 選考中 ${ongoing}社</span>`;
+    const todos   = DB.getTodos().filter(t => !t.done).length;
+    el.innerHTML = `<span>${companies.length}社 / 選考中 ${ongoing}社</span>${todos > 0 ? `<span style="margin-top:4px;color:#f59e0b">TODO ${todos}件</span>` : ''}`;
   },
 
   _buildNav() {

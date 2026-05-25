@@ -6,6 +6,10 @@ const INDUSTRIES = ['IT・通信','コンサル','人材','SIer','金融','メ�
 const METHODS = ['自己応募','スカウト','リファラル','その他'];
 const PR_TYPES = ['自己PR','ガクチカ','志望動機','その他'];
 const INTERVIEW_STAGES = ['書類選考','WEBテスト','GD','1次面接','2次面接','3次面接','その他'];
+const COMPANY_TYPES = ['本選考','インターン'];
+const STEP_NAMES = ['エントリー','ES提出','WEBテスト','GD','1次面接','2次面接','3次面接','最終面接','その他'];
+const STEP_RESULTS = ['未定','進行中','通過','お祈り','辞退'];
+const TODO_PRIORITIES = ['高','中','低'];
 
 // ── DB ──────────────────────────────────────────────────────────────────
 const DB = {
@@ -14,7 +18,9 @@ const DB = {
     E: 'skt_es',
     I: 'skt_interviews',
     O: 'skt_obog',
-    P: 'skt_prbank'
+    P: 'skt_prbank',
+    S: 'skt_steps',
+    T: 'skt_todos'
   },
 
   _id() { return Date.now().toString(36) + Math.random().toString(36).slice(2,7); },
@@ -39,6 +45,7 @@ const DB = {
     this._set(this.K.E, this.getES().filter(e => e.companyId !== id));
     this._set(this.K.I, this.getInterviews().filter(i => i.companyId !== id));
     this._set(this.K.O, this.getOBOG().filter(o => o.companyId !== id));
+    this._set(this.K.S, this.getSteps().filter(s => s.companyId !== id));
   },
 
   // ES
@@ -84,27 +91,48 @@ const DB = {
   },
   deleteOBOG(id) { this._set(this.K.O, this.getOBOG().filter(o => o.id !== id)); },
 
-  // PR Bank
+  // PR Bank（データ互換性のため保持）
   getPRBank() { return this._get(this.K.P); },
-  addPR(d) {
-    const list = this.getPRBank();
-    const item = { ...d, id: this._id(), charCount: (d.content||'').length, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() };
-    list.push(item); this._set(this.K.P, list); return item;
+
+  // Selection Steps
+  getSteps(companyId) {
+    const all = this._get(this.K.S);
+    return companyId ? all.filter(s => s.companyId === companyId) : all;
   },
-  updatePR(id, d) {
-    const list = this.getPRBank();
-    const i = list.findIndex(p => p.id === id); if (i<0) return null;
-    if (d.content !== undefined) d.charCount = d.content.length;
-    list[i] = { ...list[i], ...d, updatedAt: new Date().toISOString() };
-    this._set(this.K.P, list); return list[i];
+  addStep(d) {
+    const list = this._get(this.K.S);
+    const item = { ...d, id: this._id(), createdAt: new Date().toISOString() };
+    list.push(item); this._set(this.K.S, list); return item;
   },
-  deletePR(id) { this._set(this.K.P, this.getPRBank().filter(p => p.id !== id)); },
+  updateStep(id, d) {
+    const list = this._get(this.K.S);
+    const i = list.findIndex(s => s.id === id); if (i<0) return null;
+    list[i] = { ...list[i], ...d };
+    this._set(this.K.S, list); return list[i];
+  },
+  deleteStep(id) { this._set(this.K.S, this._get(this.K.S).filter(s => s.id !== id)); },
+
+  // Todos
+  getTodos() { return this._get(this.K.T); },
+  addTodo(d) {
+    const list = this.getTodos();
+    const item = { ...d, id: this._id(), done: false, createdAt: new Date().toISOString() };
+    list.push(item); this._set(this.K.T, list); return item;
+  },
+  updateTodo(id, d) {
+    const list = this.getTodos();
+    const i = list.findIndex(t => t.id === id); if (i<0) return null;
+    list[i] = { ...list[i], ...d };
+    this._set(this.K.T, list); return list[i];
+  },
+  deleteTodo(id) { this._set(this.K.T, this.getTodos().filter(t => t.id !== id)); },
 
   // Export / Import
   exportAll() {
     return { version:'1.0', exportedAt: new Date().toISOString(),
       companies: this.getCompanies(), es: this.getES(),
-      interviews: this.getInterviews(), obog: this.getOBOG(), prBank: this.getPRBank() };
+      interviews: this.getInterviews(), obog: this.getOBOG(), prBank: this.getPRBank(),
+      steps: this.getSteps(), todos: this.getTodos() };
   },
   importAll(raw) {
     if (raw.companies)  this._set(this.K.C, raw.companies);
@@ -112,6 +140,8 @@ const DB = {
     if (raw.interviews) this._set(this.K.I, raw.interviews);
     if (raw.obog)       this._set(this.K.O, raw.obog);
     if (raw.prBank)     this._set(this.K.P, raw.prBank);
+    if (raw.steps)      this._set(this.K.S, raw.steps);
+    if (raw.todos)      this._set(this.K.T, raw.todos);
   },
   clearAll() { Object.values(this.K).forEach(k => localStorage.removeItem(k)); }
 };
