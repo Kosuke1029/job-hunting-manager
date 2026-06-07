@@ -118,7 +118,12 @@ const CompaniesPage = {
     App.rerender();
   },
 
-  onSearch(val) { this._filter.search = val; App.rerender(); },
+  onSearch(val) {
+    this._filter.search = val;
+    App.rerender();
+    const el = document.getElementById('search-input');
+    if (el) { el.focus(); el.setSelectionRange(val.length, val.length); }
+  },
   onFilter(key, val) { this._filter[key] = val; App.rerender(); },
 
   mount() {},
@@ -196,25 +201,12 @@ const CompaniesPage = {
         <label class="form-label">最終結果（内定・お祈りが決まったら入力）</label>
         <select class="form-select" name="finalResult">${selectOptions(RESULTS, c.finalResult, '未確定')}</select>
       </div>
-      ${!hasSteps ? `
-      <div class="form-group span-2" style="background:#f9fafb;border-radius:8px;padding:12px;border:1px solid #e5e7eb">
-        <p class="text-muted text-sm" style="margin-bottom:8px">ℹ️ 選考フローが未登録のため、手動設定できます（フロー登録後は自動判定されます）</p>
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
-          <div class="form-group">
-            <label class="form-label">現在の選考ステージ</label>
-            <select class="form-select" name="currentStage">${selectOptions(STAGES, c.currentStage)}</select>
-          </div>
-          <div class="form-group">
-            <label class="form-label">直近日程</label>
-            <input class="form-input" name="scheduleDate" type="date" value="${esc(c.scheduleDate||'')}">
-          </div>
-        </div>
-      </div>` : `
+      ${hasSteps ? `
       <div class="form-group span-2">
         <p class="form-hint" style="background:#e0e7ff;padding:10px 14px;border-radius:8px;color:#4338ca">
           ✅ 選考フローが登録されています。現在の選考状況はフローから自動判定されます。
         </p>
-      </div>`}
+      </div>` : ''}
       <div class="form-group span-2">
         <label class="form-label">メモ</label>
         <textarea class="form-textarea" name="notes" rows="3" placeholder="備考・感想など">${esc(c.notes||'')}</textarea>
@@ -269,6 +261,7 @@ const CompaniesPage = {
                     <span class="es-num">設問 ${idx+1}</span>
                     ${renderQualityBadge(e.quality)}
                     ${e.category ? `<span class="badge" style="background:#f3f4f6;color:#6b7280">${esc(e.category)}</span>` : ''}
+                    ${e.esResult ? `<span class="badge" style="color:${e.esResult==='通過'?'#10b981':'#6b7280'};background:${e.esResult==='通過'?'#d1fae5':'#f3f4f6'};font-weight:600">書類: ${esc(e.esResult)}</span>` : ''}
                     ${e.submittedDate ? `<span class="text-sm text-muted">提出: ${formatDate(e.submittedDate)}</span>` : ''}
                   </div>
                   <div>
@@ -351,6 +344,12 @@ const CompaniesPage = {
     const d = s.date ? daysUntil(s.date) : null;
     const showCountdown = (s.result === '未定' || s.result === '進行中') && d !== null && d >= 0;
     const dateClass = showCountdown && d <= 3 ? 'text-danger fw-bold' : showCountdown && d <= 7 ? 'text-warning fw-bold' : '';
+    const isSubmittable = ['ES提出', 'WEBテスト', '動画選考'].includes(s.name);
+    const submittedBadge = isSubmittable
+      ? (s.submitted
+          ? '<span class="badge" style="color:#10b981;background:#d1fae5;border:1px solid #6ee7b7">✓ 提出済み</span>'
+          : '<span class="badge" style="color:#ef4444;background:#fee2e2;border:1px solid #fca5a5">未提出</span>')
+      : '';
     return `
       <div class="step-row">
         <div class="step-connector">
@@ -363,8 +362,11 @@ const CompaniesPage = {
               <span class="step-num">${idx + 1}</span>
               <b class="step-name">${esc(s.name)}</b>
               ${renderStepResultBadge(s.result)}
+              ${s.selectionType ? renderCompanyTypeBadge(s.selectionType) : ''}
+              ${submittedBadge}
             </div>
             <div class="action-btns">
+              ${isSubmittable && !s.submitted ? `<button class="btn-icon" title="提出済みにする" onclick="CompaniesPage.markStepSubmitted('${s.id}')">✅</button>` : ''}
               <button class="btn-icon" onclick="CompaniesPage.openEditStep('${s.id}')">✏️</button>
               <button class="btn-icon btn-icon-danger" onclick="CompaniesPage.confirmDeleteStep('${s.id}')">🗑️</button>
             </div>
@@ -375,13 +377,21 @@ const CompaniesPage = {
       </div>`;
   },
 
+  markStepSubmitted(stepId) {
+    DB.updateStep(stepId, { submitted: true });
+    Toast.success('提出済みにしました');
+    this.openDetail(this._detailId);
+  },
+
   // ── ステップ追加・編集 ────────────────────────────────────────
   openAddStep(companyId) {
+    const company = DB.getCompanies().find(c => c.id === companyId);
+    const defaultType = company?.type || '';
     const existing = DB.getSteps(companyId);
     const nextOrder = existing.length > 0 ? Math.max(...existing.map(s => s.order || 0)) + 1 : 1;
     Modal.show({
       title: 'ステップを追加',
-      body: this._stepForm({}, nextOrder),
+      body: this._stepForm({}, nextOrder, defaultType),
       onSubmit: () => {
         const d = getFormData('step-form');
         if (!d.name) { Toast.error('ステップ名を入力してください'); return; }
@@ -420,14 +430,22 @@ const CompaniesPage = {
     });
   },
 
-  _stepForm(s = {}, defaultOrder = 1) {
+  _stepForm(s = {}, defaultOrder = 1, defaultSelectionType = '') {
+    const sType = s.selectionType !== undefined ? s.selectionType : defaultSelectionType;
     return `<form id="step-form" class="form-grid">
       <div class="form-group span-2">
         <label class="form-label">ステップ名 <span class="req">*</span></label>
-        <input class="form-input" name="name" list="step-name-list" value="${esc(s.name||'')}" placeholder="例）ES提出、1次面接">
-        <datalist id="step-name-list">
-          ${STEP_NAMES.map(n => `<option value="${n}">`).join('')}
-        </datalist>
+        <select class="form-select" name="name">
+          <option value="">選択してください...</option>
+          ${STEP_NAMES.map(n => `<option value="${n}" ${s.name===n?'selected':''}>${n}</option>`).join('')}
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">選考区分</label>
+        <select class="form-select" name="selectionType">
+          <option value="">未設定</option>
+          ${COMPANY_TYPES.map(t => `<option value="${t}" ${sType===t?'selected':''}>${t}</option>`).join('')}
+        </select>
       </div>
       <div class="form-group">
         <label class="form-label">日付種別</label>
@@ -453,6 +471,11 @@ const CompaniesPage = {
       <div class="form-group span-2">
         <label class="form-label">メモ</label>
         <textarea class="form-textarea" name="notes" rows="2" placeholder="備考など...">${esc(s.notes||'')}</textarea>
+      </div>
+      <div class="form-group span-2">
+        <label class="form-label" style="display:flex;align-items:center;gap:8px">
+          <input type="checkbox" name="submitted" ${s.submitted ? 'checked' : ''}> 提出・完了済み（ES提出・WEBテスト・動画選考で使用）
+        </label>
       </div>
     </form>`;
   },

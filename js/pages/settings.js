@@ -59,6 +59,21 @@ const SettingsPage = {
       </div>
     </div>
   </div>
+
+  <div class="card mt-4" style="text-align:center;padding:28px 20px;">
+    <button
+      onclick="App.navigate('motiv')"
+      style="
+        background:none;border:none;cursor:pointer;
+        font-size:15px;font-weight:600;
+        color:rgba(255,255,255,0.45);
+        letter-spacing:0.08em;
+        transition:color 0.2s;
+      "
+      onmouseover="this.style.color='rgba(255,255,255,0.85)'"
+      onmouseout="this.style.color='rgba(255,255,255,0.45)'"
+    >やる気を失った俺たちへ</button>
+  </div>
 </div>`;
   },
 

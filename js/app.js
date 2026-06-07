@@ -6,7 +6,8 @@ const PAGES = {
   calendar:  { page: () => CalendarPage,   title: 'カレンダー',     icon: '📅' },
   memo:      { page: () => MemoPage,       title: 'メモ',           icon: '📝' },
   analysis:  { page: () => AnalysisPage,   title: '選考分析',       icon: '📊' },
-  settings:  { page: () => SettingsPage,   title: '設定',           icon: '⚙️'  }
+  settings:  { page: () => SettingsPage,   title: '設定',           icon: '⚙️'  },
+  motiv:     { page: () => MotivPage,      title: 'やる気を失った俺たちへ', icon: '🔥', hidden: true }
 };
 
 const App = {
@@ -53,7 +54,7 @@ const App = {
     if (key === 'companies') {
       el.innerHTML = `<button class="btn btn-primary" onclick="CompaniesPage.openAdd()">+ 企業追加</button>`;
     } else if (key === 'es') {
-      el.innerHTML = `<button class="btn btn-primary" onclick="ESPage.openAdd()">+ ES追加</button>`;
+      el.innerHTML = ESPage.getAddBtn();
     } else if (key === 'memo') {
       el.innerHTML = MemoPage.getAddBtn();
     } else {
@@ -74,6 +75,7 @@ const App = {
     const nav = document.getElementById('nav-list');
     if (!nav) return;
     Object.entries(PAGES).forEach(([key, def]) => {
+      if (def.hidden) return;
       const li = document.createElement('li');
       li.innerHTML = `<a class="nav-item" data-page="${key}" href="#${key}">
         <span class="nav-icon">${def.icon}</span>

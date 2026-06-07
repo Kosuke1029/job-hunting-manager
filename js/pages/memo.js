@@ -6,9 +6,9 @@ const MemoPage = {
     return `
 <div class="page-content">
   <div class="tab-bar">
-    <button class="tab ${this._tab==='todo'?'active':''}" onclick="MemoPage.switchTab('todo')">TODOリスト</button>
-    <button class="tab ${this._tab==='iv'?'active':''}" onclick="MemoPage.switchTab('iv')">面接メモ</button>
-    <button class="tab ${this._tab==='ob'?'active':''}" onclick="MemoPage.switchTab('ob')">OB / OG 訪問</button>
+    <button id="memo-tab-btn-todo" class="tab ${this._tab==='todo'?'active':''}" onclick="MemoPage.switchTab('todo')">TODOリスト</button>
+    <button id="memo-tab-btn-iv" class="tab ${this._tab==='iv'?'active':''}" onclick="MemoPage.switchTab('iv')">面接メモ</button>
+    <button id="memo-tab-btn-ob" class="tab ${this._tab==='ob'?'active':''}" onclick="MemoPage.switchTab('ob')">OB / OG 訪問</button>
   </div>
   <div id="tab-content" class="mt-3">${this._renderTab()}</div>
 </div>`;
@@ -18,8 +18,7 @@ const MemoPage = {
 
   switchTab(tab) {
     this._tab = tab;
-    const el = document.getElementById('tab-content');
-    if (el) { el.innerHTML = this._renderTab(); App.updateHeaderActions(); }
+    App.rerender();
   },
 
   getAddBtn() {
@@ -43,7 +42,50 @@ const MemoPage = {
     const done   = all.filter(t => t.done).length;
     const todos  = this._filteredTodos();
 
+    // 未提出のES/WEBテストステップを収集
+    const compMap = {};
+    DB.getCompanies().forEach(c => compMap[c.id] = c);
+    const SUBMITTABLE = ['ES提出', 'WEBテスト', '動画選考'];
+    const pendingSteps = DB.getSteps().filter(s => {
+      if (!SUBMITTABLE.includes(s.name)) return false;
+      if (s.submitted) return false;
+      if (s.result === 'お祈り' || s.result === '辞退' || s.result === '通過') return false;
+      const co = compMap[s.companyId];
+      if (!co) return false;
+      if (getComputedStatus(co).finalResult) return false;
+      return true;
+    }).sort((a,b) => (a.date||'') < (b.date||'') ? -1 : 1);
+
+    const pendingSection = pendingSteps.length > 0 ? `
+      <div class="card mb-3" style="border-left:4px solid #f59e0b">
+        <div class="card-header" style="background:#fffbeb">
+          <h3 class="card-title" style="color:#92400e">⚠️ 未提出の選考タスク (${pendingSteps.length}件)</h3>
+        </div>
+        <div class="card-body p0">
+          <table class="table">
+            <thead><tr><th>企業名</th><th>タスク</th><th>締切・予定日</th><th>残り</th><th>操作</th></tr></thead>
+            <tbody>
+              ${pendingSteps.map(s => {
+                const co = compMap[s.companyId];
+                const d = s.date ? daysUntil(s.date) : null;
+                const cls = d !== null && d <= 3 ? 'text-danger fw-bold' : d !== null && d <= 7 ? 'text-warning fw-bold' : '';
+                return `<tr>
+                  <td style="cursor:pointer" onclick="CompaniesPage.openDetail('${s.companyId}')"><b>${esc(co ? co.name : '')}</b></td>
+                  <td><span class="badge" style="color:#92400e;background:#fef3c7">${esc(s.name)}</span></td>
+                  <td class="${cls}">${s.date ? formatDate(s.date) : '-'}</td>
+                  <td class="${cls}">${d !== null ? (d === 0 ? '今日' : d < 0 ? `${Math.abs(d)}日超過` : `${d}日後`) : '-'}</td>
+                  <td>
+                    <button class="btn btn-sm" style="background:#10b981;color:#fff;border:none;padding:4px 10px;border-radius:6px;cursor:pointer" onclick="MemoPage.markStepSubmitted('${s.id}')">提出済み</button>
+                  </td>
+                </tr>`;
+              }).join('')}
+            </tbody>
+          </table>
+        </div>
+      </div>` : '';
+
     return `
+      ${pendingSection}
       <div class="todo-filter-bar mb-3">
         <button class="todo-filter-btn ${this._todoFilter==='all'?'active':''}" onclick="MemoPage.setTodoFilter('all')">全て (${all.length})</button>
         <button class="todo-filter-btn ${this._todoFilter==='active'?'active':''}" onclick="MemoPage.setTodoFilter('active')">未完了 (${active})</button>
@@ -53,6 +95,21 @@ const MemoPage = {
         ? '<p class="empty-msg">TODOがありません。右上の「＋TODO追加」から追加してください。</p>'
         : `<div class="todo-list">${todos.map(t => this._todoItem(t)).join('')}</div>`
       }`;
+  },
+
+  markStepSubmitted(stepId) {
+    const s = DB.getSteps().find(x => x.id === stepId);
+    const co = s ? DB.getCompanies().find(c => c.id === s.companyId) : null;
+    const label = s ? `${co ? co.name + ' — ' : ''}${s.name}` : 'このタスク';
+    Modal.confirm({
+      title: '提出済みにする',
+      message: `「${label}」を提出済みにしますか？`,
+      onConfirm: () => {
+        DB.updateStep(stepId, { submitted: true });
+        Toast.success('提出済みにしました');
+        App.rerender();
+      }
+    });
   },
 
   _filteredTodos() {

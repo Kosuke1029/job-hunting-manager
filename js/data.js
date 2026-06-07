@@ -2,12 +2,21 @@
 const STAGES  = ['エントリー済み','書類選考中','WEBテスト中','GD中','1次面接中','2次面接中','3次面接中'];
 const RESULTS = ['IS参加決定','内定','お祈り','辞退'];
 const TIERS   = ['S','A','B','C','D'];
-const INDUSTRIES = ['IT・通信','コンサル','人材','SIer','金融','メーカー','広告','その他'];
+const INDUSTRIES = [
+  'IT・通信','コンサル','人材','SIer',
+  '金融','保険','証券',
+  'メーカー','自動車・輸送機器','電機・電子','化学・素材','食品・飲料',
+  '不動産（デベロッパー）','不動産（仲介・管理）','建設・ゼネコン',
+  '商社（総合）','商社（専門）',
+  '広告','小売・流通',
+  'エネルギー・インフラ','鉄道・航空・物流','ゲーム・エンタメ','教育',
+  'その他'
+];
 const METHODS = ['自己応募','スカウト','リファラル','その他'];
 const PR_TYPES = ['自己PR','ガクチカ','志望動機','その他'];
 const INTERVIEW_STAGES = ['書類選考','WEBテスト','GD','1次面接','2次面接','3次面接','その他'];
 const COMPANY_TYPES = ['本選考','インターン'];
-const STEP_NAMES = ['エントリー','ES提出','WEBテスト','GD','1次面接','2次面接','3次面接','最終面接','その他'];
+const STEP_NAMES = ['エントリー','ES提出','WEBテスト','GD','動画選考','1次面接','2次面接','3次面接','4次面接','5次面接','最終面接','インターン','job','ワークショップ','説明会','面談','その他'];
 const STEP_RESULTS = ['未定','進行中','通過','お祈り','辞退'];
 const TODO_PRIORITIES = ['高','中','低'];
 
@@ -20,7 +29,8 @@ const DB = {
     O: 'skt_obog',
     P: 'skt_prbank',
     S: 'skt_steps',
-    T: 'skt_todos'
+    T: 'skt_todos',
+    ET: 'skt_es_templates'
   },
 
   _id() { return Date.now().toString(36) + Math.random().toString(36).slice(2,7); },
@@ -94,6 +104,20 @@ const DB = {
   // PR Bank（データ互換性のため保持）
   getPRBank() { return this._get(this.K.P); },
 
+  // ES Templates
+  getESTemplates() { return this._get(this.K.ET); },
+  addESTemplate(d) {
+    const list = this.getESTemplates();
+    const item = { ...d, id: this._id(), createdAt: new Date().toISOString() };
+    list.push(item); this._set(this.K.ET, list); return item;
+  },
+  updateESTemplate(id, d) {
+    const list = this.getESTemplates();
+    const i = list.findIndex(e => e.id === id); if (i<0) return null;
+    list[i] = { ...list[i], ...d }; this._set(this.K.ET, list); return list[i];
+  },
+  deleteESTemplate(id) { this._set(this.K.ET, this.getESTemplates().filter(e => e.id !== id)); },
+
   // Selection Steps
   getSteps(companyId) {
     const all = this._get(this.K.S);
@@ -132,16 +156,17 @@ const DB = {
     return { version:'1.0', exportedAt: new Date().toISOString(),
       companies: this.getCompanies(), es: this.getES(),
       interviews: this.getInterviews(), obog: this.getOBOG(), prBank: this.getPRBank(),
-      steps: this.getSteps(), todos: this.getTodos() };
+      steps: this.getSteps(), todos: this.getTodos(), esTemplates: this.getESTemplates() };
   },
   importAll(raw) {
-    if (raw.companies)  this._set(this.K.C, raw.companies);
-    if (raw.es)         this._set(this.K.E, raw.es);
-    if (raw.interviews) this._set(this.K.I, raw.interviews);
-    if (raw.obog)       this._set(this.K.O, raw.obog);
-    if (raw.prBank)     this._set(this.K.P, raw.prBank);
-    if (raw.steps)      this._set(this.K.S, raw.steps);
-    if (raw.todos)      this._set(this.K.T, raw.todos);
+    if (raw.companies)    this._set(this.K.C, raw.companies);
+    if (raw.es)           this._set(this.K.E, raw.es);
+    if (raw.interviews)   this._set(this.K.I, raw.interviews);
+    if (raw.obog)         this._set(this.K.O, raw.obog);
+    if (raw.prBank)       this._set(this.K.P, raw.prBank);
+    if (raw.steps)        this._set(this.K.S, raw.steps);
+    if (raw.todos)        this._set(this.K.T, raw.todos);
+    if (raw.esTemplates)  this._set(this.K.ET, raw.esTemplates);
   },
   clearAll() { Object.values(this.K).forEach(k => localStorage.removeItem(k)); }
 };

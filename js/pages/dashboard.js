@@ -40,9 +40,15 @@ const DashboardPage = {
       ...upcomingCompanies.map(c => ({ date: c.scheduleDate, _d: c._d, name: c.currentStage || '', company: c, isStep: false }))
     ].sort((a,b) => this._sortDir * (a._d - b._d));
 
+    // 本選考内定・インターン参加決定カウンター
+    const honOffers   = companies.filter(c => c.type === '本選考'  && getComputedStatus(c).finalResult === '内定').length;
+    const internPassed = companies.filter(c => c.type === 'インターン' && getComputedStatus(c).finalResult === 'IS参加決定').length;
+
     const stageCnt = {};
-    STAGES.forEach(s => stageCnt[s] = 0);
-    ongoing.forEach(c => { if (c.currentStage) stageCnt[c.currentStage] = (stageCnt[c.currentStage]||0)+1; });
+    ongoing.forEach(c => {
+      const st = getComputedStatus(c);
+      if (st.currentStage) stageCnt[st.currentStage] = (stageCnt[st.currentStage]||0)+1;
+    });
 
     const recentCompanies = [...companies]
       .sort((a,b) => new Date(b.updatedAt||b.createdAt) - new Date(a.updatedAt||a.createdAt))
@@ -51,10 +57,21 @@ const DashboardPage = {
     return `
 <div class="page-content">
   <div class="stats-grid">
-    ${this._statCard('登録企業数', companies.length, 'blue',  iconBuilding())}
-    ${this._statCard('選考中',     ongoing.length,   'indigo', iconTrend())}
-    ${this._statCard('通過・内定', passed.length,    'green',  iconCheck())}
-    ${this._statCard('お祈り',     rejected.length,  'red',    iconX())}
+    ${this._statCard('登録企業数', companies.length, 'blue',  iconBuilding(), 'all')}
+    ${this._statCard('選考中',     ongoing.length,   'indigo', iconTrend(),    'ongoing')}
+    ${this._statCard('通過・内定', passed.length,    'green',  iconCheck(),    'passed')}
+    ${this._statCard('お祈り',     rejected.length,  'red',    iconX(),        'rejected')}
+  </div>
+
+  <div class="dashboard-counter-row">
+    <div class="counter-card counter-hon" style="cursor:pointer" onclick="DashboardPage.showCompanyList('honOffers')" title="クリックして企業一覧を表示">
+      <div class="counter-value">${honOffers}</div>
+      <div class="counter-label">🎉 本選考 内定</div>
+    </div>
+    <div class="counter-card counter-intern" style="cursor:pointer" onclick="DashboardPage.showCompanyList('internPassed')" title="クリックして企業一覧を表示">
+      <div class="counter-value">${internPassed}</div>
+      <div class="counter-label">✅ インターン 参加決定</div>
+    </div>
   </div>
 
   <div class="dashboard-grid">
@@ -94,17 +111,18 @@ const DashboardPage = {
       <div class="card-body">
         ${ongoing.length === 0
           ? '<p class="empty-msg">進行中の企業がありません</p>'
-          : STAGES.map(s => {
-              const cnt = stageCnt[s] || 0;
-              if (cnt === 0) return '';
-              const pct = Math.round(cnt / ongoing.length * 100);
-              const c = STAGE_COLOR[s] || '#6366f1';
-              return `<div class="stage-bar-row">
-                <span class="stage-label">${s}</span>
-                <div class="stage-track"><div class="stage-fill" style="width:${pct}%;background:${c}"></div></div>
-                <span class="stage-count">${cnt}</span>
-              </div>`;
-            }).join('')
+          : Object.entries(stageCnt)
+              .filter(([,cnt]) => cnt > 0)
+              .sort((a,b) => b[1] - a[1])
+              .map(([s, cnt]) => {
+                const pct = Math.round(cnt / ongoing.length * 100);
+                const c = STAGE_COLOR[s] || '#6366f1';
+                return `<div class="stage-bar-row">
+                  <span class="stage-label">${esc(s)}</span>
+                  <div class="stage-track"><div class="stage-fill" style="width:${pct}%;background:${c}"></div></div>
+                  <span class="stage-count">${cnt}</span>
+                </div>`;
+              }).join('')
         }
       </div>
     </div>
@@ -139,8 +157,65 @@ const DashboardPage = {
 
   toggleSort() { this._sortDir *= -1; App.rerender(); },
 
-  _statCard(label, value, color, icon) {
-    return `<div class="stat-card">
+  showCompanyList(filter) {
+    const companies = DB.getCompanies();
+    let filtered, title;
+    if (filter === 'all') {
+      filtered = companies;
+      title = `登録企業一覧（${companies.length}社）`;
+    } else if (filter === 'ongoing') {
+      filtered = companies.filter(c => !getComputedStatus(c).finalResult);
+      title = `選考中の企業（${filtered.length}社）`;
+    } else if (filter === 'passed') {
+      filtered = companies.filter(c => {
+        const s = getComputedStatus(c);
+        return s.finalResult === 'IS参加決定' || s.finalResult === '内定';
+      });
+      title = `通過・内定の企業（${filtered.length}社）`;
+    } else if (filter === 'rejected') {
+      filtered = companies.filter(c => getComputedStatus(c).finalResult === 'お祈り');
+      title = `お祈りの企業（${filtered.length}社）`;
+    } else if (filter === 'honOffers') {
+      filtered = companies.filter(c => c.type === '本選考' && getComputedStatus(c).finalResult === '内定');
+      title = `本選考 内定企業（${filtered.length}社）`;
+    } else if (filter === 'internPassed') {
+      filtered = companies.filter(c => c.type === 'インターン' && getComputedStatus(c).finalResult === 'IS参加決定');
+      title = `インターン 参加決定企業（${filtered.length}社）`;
+    } else { return; }
+
+    Modal.show({
+      title,
+      wide: true,
+      noFooter: true,
+      body: `
+        ${filtered.length === 0
+          ? '<p class="empty-msg m-4">該当する企業がありません</p>'
+          : `<table class="table table-hover">
+              <thead><tr><th>企業名</th><th>タイプ</th><th>業界</th><th>Tier</th><th>選考状況</th></tr></thead>
+              <tbody>
+                ${filtered.map(c => {
+                  const st = getComputedStatus(c);
+                  return `<tr style="cursor:pointer" onclick="Modal.close();CompaniesPage.openDetail('${c.id}')">
+                    <td><b>${esc(c.name)}</b></td>
+                    <td>${renderCompanyTypeBadge(c.type)}</td>
+                    <td>${renderIndustryBadge(c.industry)}</td>
+                    <td>${renderTierBadge(c.tier)}</td>
+                    <td>${st.finalResult ? renderResultBadge(st.finalResult) : renderCurrentStageBadge(st.currentStage)}</td>
+                  </tr>`;
+                }).join('')}
+              </tbody>
+            </table>`
+        }
+        <div class="modal-detail-actions mt-4">
+          <button class="btn btn-ghost btn-sm" onclick="Modal.close()">閉じる</button>
+        </div>
+      `
+    });
+  },
+
+  _statCard(label, value, color, icon, filter) {
+    const clickAttr = filter ? `style="cursor:pointer" onclick="DashboardPage.showCompanyList('${filter}')"` : '';
+    return `<div class="stat-card" ${clickAttr}>
       <div class="stat-icon si-${color}">${icon}</div>
       <div class="stat-body">
         <div class="stat-value">${value}</div>

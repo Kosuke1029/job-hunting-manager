@@ -17,6 +17,12 @@ const AnalysisPage = {
   <!-- KPIカード -->
   <div id="kpi-row">${this._renderKPI()}</div>
 
+  <!-- ステップ別通過率テーブル -->
+  <div class="card mt-3">
+    <div class="card-header"><h3 class="card-title">選考ステップ別 通過率</h3></div>
+    <div class="card-body p0">${this._renderStepTable()}</div>
+  </div>
+
   <!-- チャートグリッド -->
   <div class="analysis-grid mt-3">
     <div class="card">
@@ -40,16 +46,90 @@ const AnalysisPage = {
       <div class="card-body chart-wrap-wide"><canvas id="chart-monthly"></canvas></div>
     </div>
   </div>
-
-  <!-- ステップ別通過率テーブル -->
-  <div class="card mt-3">
-    <div class="card-header"><h3 class="card-title">選考ステップ別 通過率詳細</h3></div>
-    <div class="card-body p0">${this._renderStepTable()}</div>
-  </div>
 </div>`;
   },
 
   setFilter(val) { this._filterType = val; App.rerender(); },
+
+  showCompanyList(filter) {
+    const companies = this._getCompanies();
+    let filtered, title;
+    if (filter === 'all') {
+      filtered = companies;
+      title = `登録企業一覧（${companies.length}社）`;
+    } else if (filter === 'ongoing') {
+      filtered = companies.filter(c => !getComputedStatus(c).finalResult);
+      title = `選考中の企業（${filtered.length}社）`;
+    } else if (filter === 'passed') {
+      filtered = companies.filter(c => { const s = getComputedStatus(c); return s.finalResult === 'IS参加決定' || s.finalResult === '内定'; });
+      title = `内定・通過の企業（${filtered.length}社）`;
+    } else if (filter === 'rejected') {
+      filtered = companies.filter(c => getComputedStatus(c).finalResult === 'お祈り');
+      title = `お祈りの企業（${filtered.length}社）`;
+    } else { return; }
+    Modal.show({
+      title, wide: true, noFooter: true,
+      body: `
+        ${filtered.length === 0
+          ? '<p class="empty-msg m-4">該当する企業がありません</p>'
+          : `<table class="table table-hover">
+              <thead><tr><th>企業名</th><th>タイプ</th><th>業界</th><th>Tier</th><th>選考状況</th></tr></thead>
+              <tbody>
+                ${filtered.map(c => {
+                  const st = getComputedStatus(c);
+                  return `<tr style="cursor:pointer" onclick="Modal.close();CompaniesPage.openDetail('${c.id}')">
+                    <td><b>${esc(c.name)}</b></td>
+                    <td>${renderCompanyTypeBadge(c.type)}</td>
+                    <td>${renderIndustryBadge(c.industry)}</td>
+                    <td>${renderTierBadge(c.tier)}</td>
+                    <td>${st.finalResult ? renderResultBadge(st.finalResult) : renderCurrentStageBadge(st.currentStage)}</td>
+                  </tr>`;
+                }).join('')}
+              </tbody>
+            </table>`}
+        <div class="modal-detail-actions mt-4">
+          <button class="btn btn-ghost btn-sm" onclick="Modal.close()">閉じる</button>
+        </div>`
+    });
+  },
+
+  showStepCompanies(stepName, type = '') {
+    const companies = this._getCompanies();
+    const compMap = {};
+    companies.forEach(c => compMap[c.id] = c);
+    const compSet = new Set(companies.map(c => c.id));
+    const steps = DB.getSteps().filter(s => {
+      if (!compSet.has(s.companyId) || s.name !== stepName) return false;
+      if (!type) return true;
+      const st = s.selectionType || compMap[s.companyId]?.type || '';
+      return st === type;
+    });
+
+    const rows = steps.map(s => ({ company: compMap[s.companyId], result: s.result, date: s.date })).filter(r => r.company);
+
+    Modal.show({
+      title: `${stepName}${type ? ` (${type})` : ''} — 選考企業一覧`, wide: true, noFooter: true,
+      body: `
+        ${rows.length === 0
+          ? '<p class="empty-msg m-4">該当する企業がありません</p>'
+          : `<table class="table table-hover">
+              <thead><tr><th>企業名</th><th>タイプ</th><th>業界</th><th>Tier</th><th>結果</th><th>日付</th></tr></thead>
+              <tbody>
+                ${rows.map(r => `<tr style="cursor:pointer" onclick="Modal.close();CompaniesPage.openDetail('${r.company.id}')">
+                  <td><b>${esc(r.company.name)}</b></td>
+                  <td>${renderCompanyTypeBadge(r.company.type)}</td>
+                  <td>${renderIndustryBadge(r.company.industry)}</td>
+                  <td>${renderTierBadge(r.company.tier)}</td>
+                  <td>${renderStepResultBadge(r.result)}</td>
+                  <td>${formatDate(r.date)}</td>
+                </tr>`).join('')}
+              </tbody>
+            </table>`}
+        <div class="modal-detail-actions mt-4">
+          <button class="btn btn-ghost btn-sm" onclick="Modal.close()">閉じる</button>
+        </div>`
+    });
+  },
 
   mount() {
     this._charts.forEach(c => { try { c.destroy(); } catch {} });
@@ -98,18 +178,22 @@ const AnalysisPage = {
     // 通過率の色
     const rateColor = passRate >= 50 ? '#10b981' : passRate >= 25 ? '#f59e0b' : passed === 0 ? '#6b7280' : '#ef4444';
 
+    const passedLabel = this._filterType === 'インターン' ? 'インターン参加'
+                       : this._filterType === '本選考'   ? '内定'
+                       : 'インターン参加・内定';
+
     const items = [
-      { label: '登録企業',   value: total + '社',   color: '#6366f1' },
-      { label: '選考中',     value: ongoing + '社',  color: '#3b82f6' },
-      { label: '内定・通過', value: passed + '社',   color: '#10b981' },
-      { label: 'お祈り',     value: rejected + '社', color: '#6b7280' },
+      { label: '登録企業',    value: total + '社',   color: '#6366f1', filter: 'all' },
+      { label: '選考中',      value: ongoing + '社',  color: '#3b82f6', filter: 'ongoing' },
+      { label: passedLabel,   value: passed + '社',   color: '#10b981', filter: 'passed' },
+      { label: 'お祈り',     value: rejected + '社', color: '#6b7280', filter: 'rejected' },
       { label: '最終通過率', value: passRate + '%',  color: rateColor },
       { label: 'ES登録数',   value: esCount + '件',  color: '#8b5cf6' },
       { label: '最難関ステップ', value: hardest ? `${hardest[0]}（${hardest[1]}社）` : '—', color: '#ef4444' },
     ];
 
     return `<div class="kpi-row">
-      ${items.map(item => `<div class="kpi-card" style="border-top:3px solid ${item.color}">
+      ${items.map(item => `<div class="kpi-card" style="border-top:3px solid ${item.color};${item.filter?'cursor:pointer':''}" ${item.filter?`onclick="AnalysisPage.showCompanyList('${item.filter}')"`:''}title="${item.filter?'クリックして企業一覧を表示':''}">
         <div class="kpi-value" style="color:${item.color}">${esc(item.value)}</div>
         <div class="kpi-label">${esc(item.label)}</div>
       </div>`).join('')}
@@ -120,10 +204,47 @@ const AnalysisPage = {
   _renderStepTable() {
     const companies = this._getCompanies();
     const compSet   = new Set(companies.map(c => c.id));
+    const compMap   = {};
+    companies.forEach(c => compMap[c.id] = c);
     const allSteps  = DB.getSteps().filter(s => compSet.has(s.companyId));
 
+    if (allSteps.length === 0) {
+      return '<p class="empty-msg m-4">選考ステップのデータがありません。企業詳細の「選考フロー」タブから追加してください。</p>';
+    }
+
+    // 全タイプ選択時はグルーピングなし
+    if (!this._filterType) {
+      return this._renderStepTableRows(allSteps, '');
+    }
+
+    const getStepType = s => s.selectionType || compMap[s.companyId]?.type || '';
+
+    const honSteps    = allSteps.filter(s => getStepType(s) === '本選考');
+    const internSteps = allSteps.filter(s => getStepType(s) === 'インターン');
+    const otherSteps  = allSteps.filter(s => !getStepType(s));
+    const hasTyped    = honSteps.length > 0 || internSteps.length > 0;
+
+    let html = '';
+    if (honSteps.length > 0) {
+      html += `<div style="padding:8px 16px;background:#e0e7ff;color:#4338ca;font-weight:700;font-size:13px;border-bottom:1px solid #c7d2fe">本選考</div>`;
+      html += this._renderStepTableRows(honSteps, '本選考');
+    }
+    if (internSteps.length > 0) {
+      html += `<div style="padding:8px 16px;background:#fef3c7;color:#92400e;font-weight:700;font-size:13px;${honSteps.length ? 'border-top:2px solid #e5e7eb;' : ''}border-bottom:1px solid #fde68a">インターン</div>`;
+      html += this._renderStepTableRows(internSteps, 'インターン');
+    }
+    if (otherSteps.length > 0) {
+      if (hasTyped) {
+        html += `<div style="padding:8px 16px;background:#f3f4f6;color:#6b7280;font-weight:700;font-size:13px;border-top:2px solid #e5e7eb;border-bottom:1px solid #e5e7eb">区分未設定</div>`;
+      }
+      html += this._renderStepTableRows(otherSteps, '');
+    }
+    return html;
+  },
+
+  _renderStepTableRows(steps, type = '') {
     const stats = {};
-    allSteps.forEach(s => {
+    steps.forEach(s => {
       if (!stats[s.name]) stats[s.name] = { pass: 0, fail: 0, active: 0 };
       const st = stats[s.name];
       if      (s.result === '通過') st.pass++;
@@ -132,9 +253,7 @@ const AnalysisPage = {
     });
 
     const rows = Object.entries(stats).sort((a,b) => (b[1].pass+b[1].fail+b[1].active) - (a[1].pass+a[1].fail+a[1].active));
-    if (rows.length === 0) {
-      return '<p class="empty-msg m-4">選考ステップのデータがありません。企業詳細の「選考フロー」タブから追加してください。</p>';
-    }
+    if (rows.length === 0) return '<p class="empty-msg" style="padding:12px 16px;font-size:13px">データなし</p>';
 
     return `<table class="table">
       <thead>
@@ -152,7 +271,7 @@ const AnalysisPage = {
           const concluded = st.pass + st.fail;
           const rate = concluded > 0 ? Math.round(st.pass / concluded * 100) : null;
           const barColor = rate === null ? '#94a3b8' : rate >= 60 ? '#10b981' : rate >= 35 ? '#f59e0b' : '#ef4444';
-          return `<tr>
+          return `<tr style="cursor:pointer" onclick="AnalysisPage.showStepCompanies('${esc(name)}','${esc(type)}')" title="クリックして企業一覧を表示">
             <td><b>${esc(name)}</b></td>
             <td style="text-align:center">${st.pass + st.fail + st.active}</td>
             <td style="text-align:center;color:#10b981;font-weight:700">${st.pass}</td>

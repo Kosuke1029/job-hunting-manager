@@ -1,45 +1,57 @@
 // ── カラーマップ ────────────────────────────────────────────────────────
-const TIER_COLOR = { S:'#f59e0b', A:'#6366f1', B:'#10b981', C:'#6b7280', D:'#94a3b8' };
-const TIER_BG    = { S:'#fef3c7', A:'#e0e7ff', B:'#d1fae5', C:'#f3f4f6', D:'#f1f5f9' };
+const TIER_COLOR = { S:'#fbbf24', A:'#818cf8', B:'#34d399', C:'#94a3b8', D:'#64748b' };
+const TIER_BG    = { S:'rgba(251,191,36,0.15)', A:'rgba(129,140,248,0.15)', B:'rgba(52,211,153,0.15)', C:'rgba(148,163,184,0.12)', D:'rgba(100,116,139,0.12)' };
 
 const IND_COLOR = {
-  'IT・通信':'#3b82f6','コンサル':'#8b5cf6','人材':'#f43f5e',
-  'SIer':'#06b6d4','金融':'#f59e0b','メーカー':'#10b981','広告':'#f97316','その他':'#6b7280'
+  'IT・通信':'#60a5fa','コンサル':'#a78bfa','人材':'#f472b6',
+  'SIer':'#22d3ee','金融':'#fbbf24','メーカー':'#34d399','広告':'#fb923c','その他':'#94a3b8',
+  '保険':'#fbbf24','証券':'#f59e0b',
+  '自動車・輸送機器':'#34d399','電機・電子':'#38bdf8','化学・素材':'#c084fc','食品・飲料':'#facc15',
+  '不動産（デベロッパー）':'#f87171','不動産（仲介・管理）':'#fca5a5','建設・ゼネコン':'#d97706',
+  '商社（総合）':'#22d3ee','商社（専門）':'#06b6d4',
+  '小売・流通':'#a3e635',
+  'エネルギー・インフラ':'#a8a29e','鉄道・航空・物流':'#94a3b8','ゲーム・エンタメ':'#f472b6','教育':'#a78bfa'
 };
 const IND_BG = {
-  'IT・通信':'#dbeafe','コンサル':'#ede9fe','人材':'#ffe4e6',
-  'SIer':'#cffafe','金融':'#fef3c7','メーカー':'#d1fae5','広告':'#ffedd5','その他':'#f3f4f6'
+  'IT・通信':'rgba(96,165,250,0.15)','コンサル':'rgba(167,139,250,0.15)','人材':'rgba(244,114,182,0.15)',
+  'SIer':'rgba(34,211,238,0.15)','金融':'rgba(251,191,36,0.15)','メーカー':'rgba(52,211,153,0.15)','広告':'rgba(251,146,60,0.15)','その他':'rgba(148,163,184,0.12)',
+  '保険':'rgba(251,191,36,0.15)','証券':'rgba(245,158,11,0.15)',
+  '自動車・輸送機器':'rgba(52,211,153,0.15)','電機・電子':'rgba(56,189,248,0.15)','化学・素材':'rgba(192,132,252,0.15)','食品・飲料':'rgba(250,204,21,0.15)',
+  '不動産（デベロッパー）':'rgba(248,113,113,0.15)','不動産（仲介・管理）':'rgba(252,165,165,0.15)','建設・ゼネコン':'rgba(217,119,6,0.15)',
+  '商社（総合）':'rgba(34,211,238,0.15)','商社（専門）':'rgba(6,182,212,0.15)',
+  '小売・流通':'rgba(163,230,53,0.15)',
+  'エネルギー・インフラ':'rgba(168,162,158,0.15)','鉄道・航空・物流':'rgba(148,163,184,0.12)','ゲーム・エンタメ':'rgba(244,114,182,0.15)','教育':'rgba(167,139,250,0.15)'
 };
 
 const STAGE_COLOR = {
-  'エントリー済み':'#94a3b8','書類選考中':'#3b82f6','WEBテスト中':'#8b5cf6',
-  'GD中':'#f59e0b','1次面接中':'#f97316','2次面接中':'#ef4444','3次面接中':'#dc2626'
+  'エントリー済み':'#94a3b8','書類選考中':'#60a5fa','WEBテスト中':'#a78bfa',
+  'GD中':'#fbbf24','1次面接中':'#fb923c','2次面接中':'#f87171','3次面接中':'#ef4444'
 };
 const STAGE_BG = {
-  'エントリー済み':'#f1f5f9','書類選考中':'#dbeafe','WEBテスト中':'#ede9fe',
-  'GD中':'#fef3c7','1次面接中':'#ffedd5','2次面接中':'#fee2e2','3次面接中':'#fecaca'
+  'エントリー済み':'rgba(148,163,184,0.12)','書類選考中':'rgba(96,165,250,0.15)','WEBテスト中':'rgba(167,139,250,0.15)',
+  'GD中':'rgba(251,191,36,0.15)','1次面接中':'rgba(251,146,60,0.15)','2次面接中':'rgba(248,113,113,0.15)','3次面接中':'rgba(239,68,68,0.2)'
 };
 
-const RESULT_COLOR = { 'IS参加決定':'#10b981','内定':'#059669','お祈り':'#6b7280','辞退':'#9ca3af' };
-const RESULT_BG    = { 'IS参加決定':'#d1fae5','内定':'#a7f3d0','お祈り':'#f3f4f6','辞退':'#f9fafb' };
+const RESULT_COLOR = { 'IS参加決定':'#34d399','内定':'#10b981','お祈り':'#94a3b8','辞退':'#64748b' };
+const RESULT_BG    = { 'IS参加決定':'rgba(52,211,153,0.18)','内定':'rgba(16,185,129,0.18)','お祈り':'rgba(148,163,184,0.12)','辞退':'rgba(100,116,139,0.12)' };
 
 const ES_QUALITY_LABELS = ['自信あり', '普通', '要改善', 'AI生成'];
-const ES_QUALITY_COLOR  = { '自信あり':'#10b981', '普通':'#6b7280', '要改善':'#f97316', 'AI生成':'#8b5cf6' };
-const ES_QUALITY_BG     = { '自信あり':'#d1fae5', '普通':'#f3f4f6', '要改善':'#ffedd5', 'AI生成':'#ede9fe' };
+const ES_QUALITY_COLOR  = { '自信あり':'#34d399', '普通':'#94a3b8', '要改善':'#fb923c', 'AI生成':'#a78bfa' };
+const ES_QUALITY_BG     = { '自信あり':'rgba(52,211,153,0.15)', '普通':'rgba(148,163,184,0.12)', '要改善':'rgba(251,146,60,0.15)', 'AI生成':'rgba(167,139,250,0.15)' };
 const ES_QUALITY_ICON   = { '自信あり':'✨', '普通':'📝', '要改善':'📌', 'AI生成':'🤖' };
 
-const COMPANY_TYPE_COLOR = { '本選考':'#6366f1', 'インターン':'#f59e0b' };
-const COMPANY_TYPE_BG    = { '本選考':'#e0e7ff', 'インターン':'#fef3c7' };
+const COMPANY_TYPE_COLOR = { '本選考':'#818cf8', 'インターン':'#fbbf24' };
+const COMPANY_TYPE_BG    = { '本選考':'rgba(129,140,248,0.18)', 'インターン':'rgba(251,191,36,0.18)' };
 
 const STEP_RESULT_COLOR = {
-  '未定':'#94a3b8', '進行中':'#3b82f6', '通過':'#10b981', 'お祈り':'#6b7280', '辞退':'#9ca3af'
+  '未定':'#94a3b8', '進行中':'#60a5fa', '通過':'#34d399', 'お祈り':'#94a3b8', '辞退':'#64748b'
 };
 const STEP_RESULT_BG = {
-  '未定':'#f1f5f9', '進行中':'#dbeafe', '通過':'#d1fae5', 'お祈り':'#f3f4f6', '辞退':'#f9fafb'
+  '未定':'rgba(148,163,184,0.12)', '進行中':'rgba(96,165,250,0.18)', '通過':'rgba(52,211,153,0.18)', 'お祈り':'rgba(148,163,184,0.12)', '辞退':'rgba(100,116,139,0.12)'
 };
 
-const TODO_PRIORITY_COLOR = { '高':'#ef4444', '中':'#f59e0b', '低':'#10b981' };
-const TODO_PRIORITY_BG    = { '高':'#fee2e2', '中':'#fef3c7', '低':'#d1fae5' };
+const TODO_PRIORITY_COLOR = { '高':'#f87171', '中':'#fbbf24', '低':'#34d399' };
+const TODO_PRIORITY_BG    = { '高':'rgba(248,113,113,0.18)', '中':'rgba(251,191,36,0.18)', '低':'rgba(52,211,153,0.18)' };
 
 // ── バッジ生成 ──────────────────────────────────────────────────────────
 function renderTierBadge(tier) {
@@ -116,6 +128,15 @@ function getComputedStatus(company) {
   }
 
   // ステップを順番に確認して現在地を判定
+  // インターン/jobステップが存在するだけでIS参加決定（お祈り・辞退は除く）
+  const internStep = steps.find(s =>
+    (s.name === 'インターン' || s.name === 'job') &&
+    s.result !== 'お祈り' && s.result !== '辞退'
+  );
+  if (internStep) {
+    return { currentStage: 'インターン（参加決定）', finalResult: 'IS参加決定', nextDate: null };
+  }
+
   for (const s of steps) {
     if (s.result === 'お祈り') return { currentStage: s.name, finalResult: 'お祈り', nextDate: null };
     if (s.result === '辞退')   return { currentStage: s.name, finalResult: '辞退',   nextDate: null };
@@ -125,7 +146,11 @@ function getComputedStatus(company) {
   }
 
   // 全ステップ通過（手動のfinalResultなし）
-  return { currentStage: steps[steps.length-1].name + '（通過）', finalResult: null, nextDate: null };
+  const lastStep = steps[steps.length - 1].name;
+  if (company.type === 'インターン') {
+    return { currentStage: lastStep + '（通過）', finalResult: 'IS参加決定', nextDate: null };
+  }
+  return { currentStage: lastStep + '（通過）', finalResult: null, nextDate: null };
 }
 
 function renderCurrentStageBadge(stage) {
